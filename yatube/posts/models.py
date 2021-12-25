@@ -49,9 +49,9 @@ class Post(models.Model):
         return self.text[:15]
 
 
-class Comment(CreatedModel): 
+class Comment(CreatedModel):
     post = models.ForeignKey(
-        Post, 
+        Post,
         on_delete=models.CASCADE,
         help_text='Пост к которому относится коментарий',
         verbose_name='Пост',

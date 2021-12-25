@@ -12,8 +12,7 @@ from posts.models import Group, Post, User
 
 TEMP_MEDIA_ROOT = tempfile.mkdtemp(dir=settings.BASE_DIR)
 
-# Для сохранения media-файлов в тестах будет использоваться
-# временная папка TEMP_MEDIA_ROOT, а потом мы ее удалим
+
 @override_settings(MEDIA_ROOT=TEMP_MEDIA_ROOT)
 class TaskCreateFormTests(TestCase):
     @classmethod
@@ -32,10 +31,9 @@ class TaskCreateFormTests(TestCase):
         cls.form = PostForm()
 
     @classmethod
-    def tearDownClass(cls): # функция удаляет тестировачные данные после прохождения теста
+    def tearDownClass(cls):
         super().tearDownClass()
         shutil.rmtree(TEMP_MEDIA_ROOT, ignore_errors=True)
-
 
     def setUp(self):
         self.user = TaskCreateFormTests.user
@@ -79,14 +77,12 @@ class TaskCreateFormTests(TestCase):
         post = TaskCreateFormTests.post
         post_count = Post.objects.count()
         form_data = {'text': 'Отредактированый текст'}
-        # } перенесен из за автотестов
         r = reverse('posts:post_edit', kwargs={'post_id': f'{post.pk}'})
         s = self.authorized_client.post((r), data=form_data, follow=True)
-        # этот маразм для автотестов
+        # этот маразм r , s для автотестов
         response = s
         self.assertRedirects(response, reverse('posts:post_detail',
                              kwargs={'post_id': f'{post.pk}'}))
         self.assertEqual(Post.objects.count(), post_count)
         self.assertTrue(Post.objects.filter(text='Отредактированый текст',
                                             author=post.author).exists())
-

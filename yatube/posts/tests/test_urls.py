@@ -1,31 +1,23 @@
-from django.test import TestCase, Client
-
 from http import HTTPStatus
+
+from django.test import TestCase, Client
 
 from posts.models import Group, Post, User
 
 
 class StaticURLTests(TestCase):
     def setUp(self):
-        # Устанавливаем данные для тестирования
-        # Создаём экземпляр клиента. Он неавторизован.
         self.guest_client = Client()
 
     def test_homepage(self):
-        # Отправляем запрос через client,
-        # созданный в setUp()
         response = self.guest_client.get('/')
         self.assertEqual(response.status_code, HTTPStatus.OK)
 
     def test_about(self):
-        # Отправляем запрос через client,
-        # созданный в setUp()
         response = self.guest_client.get('/about/author/')
         self.assertEqual(response.status_code, HTTPStatus.OK)
 
     def test_tech(self):
-        # Отправляем запрос через client,
-        # созданный в setUp()
         response = self.guest_client.get('/about/tech/')
         self.assertEqual(response.status_code, HTTPStatus.OK)
 
@@ -46,13 +38,9 @@ class TaskURLTests(TestCase):
         )
 
     def setUp(self):
-        # Создаем неавторизованный клиент
         self.user = TaskURLTests.user
         self.guest_client = Client()
-
-        # Создаем второй клиент
         self.authorized_client = Client()
-        # Авторизуем пользователя
         self.authorized_client.force_login(self.user)
 
     def test_urls_uses_correct_template(self):
@@ -110,12 +98,11 @@ class TaskURLTests(TestCase):
         """комментировать посты может только авторизованный пользователь;."""
         post = TaskURLTests.post
         response = self.guest_client.get(f'/posts/{post.pk}/comment/')
-        # assertRedirects перенаправление
         self.assertRedirects(
             response,
             f'/auth/login/?next=/posts/{post.pk}/comment/'
         )
-    
+
     def test_user_follow_url(self):
         """Страница /follow/ доступна авторизованному пользователю."""
         user = TaskURLTests.user

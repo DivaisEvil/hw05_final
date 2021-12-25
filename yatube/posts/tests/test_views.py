@@ -9,8 +9,9 @@ from django import forms
 
 from ..models import Comment, Follow, Group, Post, User
 
-#Создает временную папку для хранения медиа 
+
 TEMP_MEDIA_ROOT = tempfile.mkdtemp(dir=settings.BASE_DIR)
+
 
 class TaskPagesTests(TestCase):
     @classmethod
@@ -72,8 +73,7 @@ class TaskPagesTests(TestCase):
             reverse('posts:post_create'): 'posts/create_post.html'
 
         }
-        # Проверяем, что при обращении к name вызывается
-        #  соответствующий HTML-шаблон
+
         for reverse_name, template in templates_pages_names.items():
             with self.subTest(reverse_name=reverse_name):
                 response = self.authorized_client.get(reverse_name)
@@ -123,7 +123,7 @@ class TaskPagesTests(TestCase):
             'text': forms.fields.CharField,
             'group': forms.fields.ChoiceField,
         }
-
+        
         for value, expected in form_fields.items():
             with self.subTest(value=value):
                 form_field = response.context.get('form').fields.get(value)
@@ -158,8 +158,6 @@ class TaskPagesTests(TestCase):
         response = self.authorized_client_user2.get(revrs)
         obj = response.context['page_obj']
         self.assertEqual(len(obj), 0)
-
-
 
 
 class PaginatorViewsTest(TestCase):
@@ -268,15 +266,12 @@ class PostCreateViewsTest(TestCase):
         self.assertEqual(group_id, group.pk)
 
 
-# Для сохранения media-файлов в тестах будет использоваться
-# временная папка TEMP_MEDIA_ROOT, а потом мы ее удалим
 @override_settings(MEDIA_ROOT=TEMP_MEDIA_ROOT)
 class TestContextImage(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        # отрисовка кортинки кодом
-        small_gif = (            
+        small_gif = (
              b'\x47\x49\x46\x38\x39\x61\x02\x00'
              b'\x01\x00\x80\x00\x00\x00\x00\x00'
              b'\xFF\xFF\xFF\x21\xF9\x04\x00\x00'
@@ -284,52 +279,41 @@ class TestContextImage(TestCase):
              b'\x02\x00\x01\x00\x00\x02\x02\x0C'
              b'\x0A\x00\x3B'
         )
-        # Создание картинки из отрисовки 
         uploaded = SimpleUploadedFile(
-            name='small.gif', # имя файла
-            content=small_gif, # приравнивание кода картинки к контенту
-            content_type='image/gif' # тип расширение картинки 
+            name='small.gif',
+            content=small_gif,
+            content_type='image/gif'
         )
-        # Создаем запись в базе данных для проверки сушествующего slug
         cls.user = User.objects.create_user(username='auth')
         cls.group = Group.objects.create(
             title='Тестовая группа',
             slug='test-slug',
             description='Тестовое описание',
         )
-        # Создание тестировачного поста 
         cls.post = Post.objects.create(
             author=cls.user,
             text='Тестовая группа',
             group=cls.group,
             image=uploaded
-
         )
 
     @classmethod
-    def tearDownClass(cls): # "команда" после прохождения теста удаляються временные файлы
+    def tearDownClass(cls):
         super().tearDownClass()
-        # Модуль shutil - библиотека Python с удобными инструментами 
-        # для управления файлами и директориями: 
-        # создание, удаление, копирование, перемещение, изменение папок и файлов
-        # Метод shutil.rmtree удаляет директорию и всё её содержимое
         shutil.rmtree(TEMP_MEDIA_ROOT, ignore_errors=True)
         
-
     def setUp(self):
-        # Создаем неавторизованный клиент
         self.guest_client = Client()
-        # Создание авторизованного клиента
-        self.user = TestContextImage.user 
-        self.authorized_client = Client()  
-        self.authorized_client.force_login(self.user) 
+        self.user = TestContextImage.user
+        self.authorized_client = Client()
+        self.authorized_client.force_login(self.user)
 
     def test_index_image_context(self):
         """В context шаблона index передана картинка."""
-        post=TestContextImage.post # импортировали пост из названия Класса
-        response = self.authorized_client.get(reverse('posts:index')) # получение тестовой странницы index
-        obj = response.context['page_obj'][0]# взяли контекст с страницы index взяли объект page_obj (содержащий посты) и взяли первый пост "индекс 0"
-        self.assertEqual(post.image, obj.image)# сравнение созданного поста (image) с полученным из индекса (image)
+        post = TestContextImage.post
+        response = self.authorized_client.get(reverse('posts:index'))
+        obj = response.context['page_obj'][0]
+        self.assertEqual(post.image, obj.image)
 
     def test_profile_image_context(self):
         """Шаблон profile_context сформирован с правильной картинкой."""
@@ -355,7 +339,8 @@ class TestContextImage(TestCase):
         response = self.authorized_client.get(r)
         obj = response.context['post']
         self.assertEqual(post.image, obj.image)
-    
+
+
 class CommentCreateTest(TestCase):
     @classmethod
     def setUpClass(cls):
@@ -425,10 +410,9 @@ class FollowTest(TestCase):
         """test_follow проверяет работу потписки и отписки."""
         user2 = FollowTest.user2
         follow_count = user2.following.all().count()
-        r = reverse('posts:profile_follow',
-                        kwargs={'username': f'{user2}'})
+        r = reverse('posts:profile_follow',kwargs={'username': f'{user2}'})
         response = self.authorized_client.get(r)
-        r2=reverse ('posts:profile', kwargs={'username': f'{user2}'})
+        r2 = reverse('posts:profile', kwargs={'username': f'{user2}'})
         self.assertRedirects(response, r2)
         self.assertEqual(user2.following.all().count(), follow_count + 1)
         # проверка отписки
@@ -438,6 +422,4 @@ class FollowTest(TestCase):
                         kwargs={'username': f'{user2}'})
         response = self.authorized_client.get(rvrs2)
         self.assertRedirects(response, rvrs)
-        self.assertEqual(user2.following.all().count(), follow_count-1)
-    
-    
+        self.assertEqual(user2.following.all().count(), follow_count - 1)

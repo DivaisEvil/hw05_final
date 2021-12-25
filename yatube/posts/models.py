@@ -5,6 +5,7 @@ from core.models import CreatedModel
 
 User = get_user_model()
 
+
 class Group(models.Model):
     title = models.CharField(max_length=200)
     slug = models.SlugField(max_length=200, unique=True)
@@ -39,7 +40,7 @@ class Post(models.Model):
         'Картинка',
         upload_to='posts/',
         blank=True
-    )  
+    )
 
     class Meta:
         ordering = ('-pub_date',)
@@ -48,20 +49,19 @@ class Post(models.Model):
         return self.text[:15]
 
 
-class Comment(CreatedModel):
-    # ссылкой указываеться "models.ForeignKey" <- команда а заней имя класса на который ссылаемся 
-    post =models.ForeignKey(
+class Comment(CreatedModel): 
+    post = models.ForeignKey(
         Post, 
-        on_delete=models.CASCADE,   # этот параметр привязывает модель к посту. (в случае ТОЛЬКО удаление поста удалиться и коментарий)
-        help_text='Пост к которому относится коментарий', # подсказка того что нужно внести  в поле
-        verbose_name='Пост', # имя поля 
-        related_name='comments', # благодаря этой  строки мы сможем ссылаться на всю модель коммент командой post.comments
+        on_delete=models.CASCADE,
+        help_text='Пост к которому относится коментарий',
+        verbose_name='Пост',
+        related_name='comments',
     )
 
     author = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name='comments' # благодаря этой команде можно ссылаться на все коменты автора командой ->author.comments
+        related_name='comments'
     )
 
     text = models.TextField(
@@ -69,12 +69,13 @@ class Comment(CreatedModel):
         verbose_name='Текст поста'
     )
 
+
 class Follow (models.Model):
-    
+
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name='follower' 
+        related_name='follower'
     )
 
     author = models.ForeignKey(

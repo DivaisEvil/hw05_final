@@ -10,12 +10,7 @@ TEMPLATES_DIR = os.path.join(BASE_DIR, 'templates')
 
 DEBUG = True
 
-ALLOWED_HOSTS = [
-                'localhost',
-                '127.0.0.1',
-                '[::1]',
-                'testserver',
-]
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]', 'testserver',]
 
 INSTALLED_APPS = [
     'posts.apps.PostsConfig',
@@ -110,4 +105,4 @@ CSRF_FAILURE_VIEW = 'core.views.csrf_failure'
 
 MEDIA_URL = '/media/'
 
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media') 
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')

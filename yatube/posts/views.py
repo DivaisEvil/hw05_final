@@ -106,7 +106,6 @@ def post_create(request):
 def post_edit(request, post_id):
     posts = get_object_or_404(Post, pk=post_id)
     template = 'posts/create_post.html'
-
     if posts.author != request.user:
         return redirect('posts:post_detail', post_id=post_id)
     title = 'Редактировать запись'
@@ -125,7 +124,6 @@ def post_edit(request, post_id):
             'post': posts,
         }
         return render(request, template, context)
-    # в теории такая форма  request.POST or None, files=request.FILES or None,
     if not form.is_valid():
         return render(request, template, {'form': form})
     form = form.save(commit=False)
@@ -133,9 +131,9 @@ def post_edit(request, post_id):
     form.save()
     return redirect('posts:post_detail', post_id=post_id)
 
+
 @login_required
 def add_comment(request, post_id):
-    # Получите пост 
     form = CommentForm(request.POST or None)
     post = get_object_or_404(Post, pk=post_id)
     if form.is_valid():
@@ -143,11 +141,11 @@ def add_comment(request, post_id):
         comment.author = request.user
         comment.post = post
         comment.save()
-    return redirect('posts:post_detail', post_id=post_id) 
+    return redirect('posts:post_detail', post_id=post_id)
+
 
 @login_required
 def follow_index(request):
-    # информация о текущем пользователе доступна в переменной request.user
     post_list = Post.objects.filter(author__following__user=request.user).all()
     paginator = Paginator(post_list, settings.PER_PAGE)
     page_number = request.GET.get('page')
@@ -159,9 +157,9 @@ def follow_index(request):
     }
     return render(request, 'posts/follow.html', context)
 
+
 @login_required
 def profile_follow(request, username):
-    # Подписаться на автора
     author = get_object_or_404(User, username=username)
     if request.user == author:
         return redirect('posts:profile', username=username)
@@ -171,7 +169,6 @@ def profile_follow(request, username):
 
 @login_required
 def profile_unfollow(request, username):
-    # Дизлайк, отписка
     author = get_object_or_404(User, username=username)
     follower = author.following.filter(user=request.user)
     if follower.exists():

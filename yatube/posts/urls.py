@@ -12,14 +12,11 @@ urlpatterns = [
     path('posts/<int:post_id>/', views.post_detail, name='post_detail'),
     path('posts/<int:post_id>/edit/', views.post_edit, name='post_edit'),
     path('create/', views.post_create, name='post_create'),
-    # 'posts/<int:post_id>/comment' показывает url страницы
-    # views.add_comment ccылаеться на место и имя views 
-    # name='add_comment' имя для вызова 
-    path('posts/<int:post_id>/comment/', views.add_comment, name='add_comment'), # 'posts/<int:post_id>/comment' показывает url страницы
-    path('follow/', views.follow_index, name='follow_index'),    
+    path('posts/<int:post_id>/comment/', views.add_comment, name='add_comment'),
+    path('follow/', views.follow_index, name='follow_index'),
     path(
         'profile/<str:username>/follow/',
-        views.profile_follow, 
+        views.profile_follow,
         name='profile_follow'
     ),
     path(

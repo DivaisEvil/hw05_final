@@ -1,0 +1,443 @@
+import shutil
+import tempfile
+
+from django.conf import settings
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import Client, TestCase, override_settings
+from django.urls import reverse
+from django import forms
+
+from ..models import Comment, Follow, Group, Post, User
+
+#Создает временную папку для хранения медиа 
+TEMP_MEDIA_ROOT = tempfile.mkdtemp(dir=settings.BASE_DIR)
+
+class TaskPagesTests(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.user = User.objects.create_user(username='auth')
+        cls.user1 = User.objects.create_user(username='admin')
+        cls.user2 = User.objects.create_user(username='auth1')
+        cls.group = Group.objects.create(
+            title='Тестовая группа',
+            slug='test-slug',
+            description='Тестовое описание',
+        )
+        cls.post = Post.objects.create(
+            author=cls.user,
+            text='Тестовая группа',
+            group=cls.group
+        )
+        cls.post1 = Post.objects.create(
+            author=cls.user1,
+            text='Тестовая группа',
+            group=cls.group
+        )
+        cls.follow = Follow.objects.create(
+            user=cls.user,
+            author=cls.user1,
+        )
+
+    def setUp(self):
+        self.user = TaskPagesTests.user
+        self.user1 = TaskPagesTests.user2
+        self.authorized_client = Client()
+        self.authorized_client.force_login(self.user)
+        self.authorized_client_user2 = Client()
+        self.authorized_client_user2.force_login(self.user2)
+
+    def post_object_check(self, obj):
+        post = TaskPagesTests.post
+        self.assertEqual(post.text, obj.text)
+        self.assertEqual(post.author, obj.author)
+        self.assertEqual(post.group, obj.group)
+        self.assertEqual(post.pk, obj.pk)
+        return True
+
+    def test_pages_uses_correct_template(self):
+        """URL-адрес использует соответствующий шаблон."""
+        group = TaskPagesTests.group
+        post = TaskPagesTests.post
+        templates_pages_names = {
+            reverse('posts:index'): 'posts/index.html',
+            reverse('posts:group_list',
+                    kwargs={'slug': group.slug}): 'posts/group_list.html',
+            reverse('posts:profile',
+                    kwargs={'username': post.author}): 'posts/profile.html',
+            reverse('posts:post_detail',
+                    kwargs={'post_id': post.pk}): 'posts/post_detail.html',
+            reverse('posts:post_edit',
+                    kwargs={'post_id': post.pk}): 'posts/create_post.html',
+            reverse('posts:post_create'): 'posts/create_post.html'
+
+        }
+        # Проверяем, что при обращении к name вызывается
+        #  соответствующий HTML-шаблон
+        for reverse_name, template in templates_pages_names.items():
+            with self.subTest(reverse_name=reverse_name):
+                response = self.authorized_client.get(reverse_name)
+                self.assertTemplateUsed(response, template)
+
+    def post_object_check(self, obj):
+        post = TaskPagesTests.post
+        self.assertEqual(post.text, obj.text)
+        self.assertEqual(post.group, obj.group)
+        self.assertEqual(post.pk, obj.pk)
+        return True
+
+    def test_index_page_show_correct_context(self):
+        """Шаблон index сформирован с правильным контекстом."""
+        response = self.authorized_client.get(reverse('posts:index'))
+        obj = response.context['page_obj'][0]
+        self.assertTrue(self.post_object_check(obj))
+
+    def test_group_list_context(self):
+        """Шаблон group_list_context сформирован с правильным контекстом."""
+        group = TaskPagesTests.group
+        r = reverse('posts:group_list', kwargs={'slug': group.slug})
+        response = self.authorized_client.get(r)
+        group_list = response.context['page_obj'][0]
+        self.assertEqual(group_list.group.title, group.title)
+
+    def test_profile_context(self):
+        """Шаблон profile_context сформирован с правильным контекстом."""
+        post = TaskPagesTests.post
+        r = reverse('posts:profile', kwargs={'username': post.author})
+        response = self.authorized_client.get(r)
+        obj = response.context['page_obj'][0]
+        self.assertTrue(self.post_object_check(obj))
+
+    def test_post_detailt_context(self):
+        """Шаблон post_detail_context сформирован с правильным контекстом."""
+        post = TaskPagesTests.post
+        r = reverse('posts:post_detail', kwargs={'post_id': post.pk})
+        response = self.authorized_client.get(r)
+        obj = response.context['post']
+        self.assertTrue(self.post_object_check(obj))
+
+    def test_post_create_page_show_correct_context(self):
+        """Шаблон post create сформирован с правильным контекстом."""
+        response = self.authorized_client.get(reverse('posts:post_create'))
+        form_fields = {
+            'text': forms.fields.CharField,
+            'group': forms.fields.ChoiceField,
+        }
+
+        for value, expected in form_fields.items():
+            with self.subTest(value=value):
+                form_field = response.context.get('form').fields.get(value)
+                self.assertIsInstance(form_field, expected)
+
+    def test_post_edit_page_show_correct_context(self):
+        """Шаблон post edit сформирован с правильным контекстом."""
+        post = TaskPagesTests.post
+        r = reverse('posts:post_edit', kwargs={'post_id': post.pk})
+        response = self.authorized_client.get(r)
+        form_fields = {
+            'text': forms.fields.CharField,
+            'group': forms.fields.ChoiceField,
+        }
+        for value, expected in form_fields.items():
+            with self.subTest(value=value):
+                form_field = response.context.get('form').fields.get(value)
+                self.assertIsInstance(form_field, expected)
+
+    def test_follow_context(self):
+        """Шаблон follow_context добавлен пост подписки."""
+        post = TaskPagesTests.post1
+        revrs = reverse('posts:follow_index')
+        response = self.authorized_client.get(revrs)
+        obj = response.context['page_obj'][0]
+        self.assertEqual(post.text, obj.text)
+    
+    def test_an_follow_context(self):
+        """Шаблон an_follow_context новый пост
+         не добовляеться у не подписанного юзера."""
+        revrs = reverse('posts:follow_index')
+        response = self.authorized_client_user2.get(revrs)
+        obj = response.context['page_obj']
+        self.assertEqual(len(obj), 0)
+
+
+
+
+class PaginatorViewsTest(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.user = User.objects.create_user(username='auth')
+        cls.group = Group.objects.create(
+            title='Тестовая группа',
+            slug='test-slug',
+            description='Тестовое описание',
+        )
+        for i in range(0, 13):
+            cls.post = Post.objects.create(
+                author=cls.user,
+                text=f'Тестовая группа {i}',
+                group=cls.group
+            )
+
+    def setUp(self):
+        self.user = PaginatorViewsTest.user
+        self.authorized_client = Client()
+        self.authorized_client.force_login(self.user)
+
+    def test_first_index_page_contains_ten_records(self):
+        response = self.client.get(reverse('posts:index'))
+        self.assertEqual(len(response.context['page_obj']), 10)
+
+    def test_second_index_page_contains_three_records_page_2(self):
+        response = self.client.get(reverse('posts:index') + '?page=2')
+        self.assertEqual(len(response.context['page_obj']), 3)
+
+    def test_group_list(self):
+        group = PaginatorViewsTest.group
+        r = reverse('posts:group_list', kwargs={'slug': group.slug})
+        response = self.client.get(r)
+        self.assertEqual(len(response.context['page_obj']), 10)
+
+    def test_group_list_page_2(self):
+        group = PaginatorViewsTest.group
+        r = reverse(
+            'posts:group_list', kwargs={'slug': group.slug}) + '?page=2'
+        # автотест не дает отправить
+        response = self.client.get(r)
+        self.assertEqual(len(response.context['page_obj']), 3)
+
+    def test_profile(self):
+        post = PaginatorViewsTest.post
+        r = reverse('posts:profile', kwargs={'username': post.author})
+        response = self.client.get(r)
+        self.assertEqual(len(response.context['page_obj']), 10)
+
+    def test_profile_page_2(self):
+        post = PaginatorViewsTest.post
+        r = reverse(
+            'posts:profile', kwargs={'username': post.author}) + '?page=2'
+        # автотест не дает отправить
+        response = self.client.get(r)
+        self.assertEqual(len(response.context['page_obj']), 3)
+
+
+class PostCreateViewsTest(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.user = User.objects.create_user(username='auth')
+        cls.group = Group.objects.create(
+            title='Тестовая группа',
+            slug='test-slug',
+            description='Тестовое описание',
+        )
+        cls.post = Post.objects.create(
+            author=cls.user,
+            text='Тестовая группа',
+            group=cls.group
+        )
+
+    def setUp(self):
+        self.user = PostCreateViewsTest.user
+        self.authorized_client = Client()
+        self.authorized_client.force_login(self.user)
+
+    def test_index_post(self):
+        group = PostCreateViewsTest.group
+
+        response = self.authorized_client.get(reverse('posts:index'))
+        first_object = response.context['page_obj'][0]
+        group_id = first_object.group.pk
+        self.assertEqual(group_id, group.pk)
+
+    def test_group_post(self):
+        group = PostCreateViewsTest.group
+        rvrs = reverse('posts:group_list', kwargs={'slug': f'{group.slug}'})
+        response = self.authorized_client.get(rvrs)
+        first_object = response.context['page_obj'][0]
+        group_id = first_object.group.pk
+        self.assertEqual(group_id, group.pk)
+
+    def test_profile_post(self):
+        group = PostCreateViewsTest.group
+        post = PostCreateViewsTest.post
+        rvrs = reverse('posts:profile', kwargs={'username': f'{post.author}'})
+        response = self.authorized_client.get(rvrs)
+        first_object = response.context['page_obj'][0]
+        group_id = first_object.group.pk
+        self.assertEqual(group_id, group.pk)
+
+
+# Для сохранения media-файлов в тестах будет использоваться
+# временная папка TEMP_MEDIA_ROOT, а потом мы ее удалим
+@override_settings(MEDIA_ROOT=TEMP_MEDIA_ROOT)
+class TestContextImage(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        # отрисовка кортинки кодом
+        small_gif = (            
+             b'\x47\x49\x46\x38\x39\x61\x02\x00'
+             b'\x01\x00\x80\x00\x00\x00\x00\x00'
+             b'\xFF\xFF\xFF\x21\xF9\x04\x00\x00'
+             b'\x00\x00\x00\x2C\x00\x00\x00\x00'
+             b'\x02\x00\x01\x00\x00\x02\x02\x0C'
+             b'\x0A\x00\x3B'
+        )
+        # Создание картинки из отрисовки 
+        uploaded = SimpleUploadedFile(
+            name='small.gif', # имя файла
+            content=small_gif, # приравнивание кода картинки к контенту
+            content_type='image/gif' # тип расширение картинки 
+        )
+        # Создаем запись в базе данных для проверки сушествующего slug
+        cls.user = User.objects.create_user(username='auth')
+        cls.group = Group.objects.create(
+            title='Тестовая группа',
+            slug='test-slug',
+            description='Тестовое описание',
+        )
+        # Создание тестировачного поста 
+        cls.post = Post.objects.create(
+            author=cls.user,
+            text='Тестовая группа',
+            group=cls.group,
+            image=uploaded
+
+        )
+
+    @classmethod
+    def tearDownClass(cls): # "команда" после прохождения теста удаляються временные файлы
+        super().tearDownClass()
+        # Модуль shutil - библиотека Python с удобными инструментами 
+        # для управления файлами и директориями: 
+        # создание, удаление, копирование, перемещение, изменение папок и файлов
+        # Метод shutil.rmtree удаляет директорию и всё её содержимое
+        shutil.rmtree(TEMP_MEDIA_ROOT, ignore_errors=True)
+        
+
+    def setUp(self):
+        # Создаем неавторизованный клиент
+        self.guest_client = Client()
+        # Создание авторизованного клиента
+        self.user = TestContextImage.user 
+        self.authorized_client = Client()  
+        self.authorized_client.force_login(self.user) 
+
+    def test_index_image_context(self):
+        """В context шаблона index передана картинка."""
+        post=TestContextImage.post # импортировали пост из названия Класса
+        response = self.authorized_client.get(reverse('posts:index')) # получение тестовой странницы index
+        obj = response.context['page_obj'][0]# взяли контекст с страницы index взяли объект page_obj (содержащий посты) и взяли первый пост "индекс 0"
+        self.assertEqual(post.image, obj.image)# сравнение созданного поста (image) с полученным из индекса (image)
+
+    def test_profile_image_context(self):
+        """Шаблон profile_context сформирован с правильной картинкой."""
+        post = TestContextImage.post
+        r = reverse('posts:profile', kwargs={'username': post.author})
+        response = self.authorized_client.get(r)
+        obj = response.context['page_obj'][0]
+        self.assertEqual(post.image, obj.image)
+
+    def test_group_list_image_context(self):
+        """Шаблон group_list_context сформирован с правильной картинкой."""
+        group = TestContextImage.group
+        post = TestContextImage.post
+        r = reverse('posts:group_list', kwargs={'slug': group.slug})
+        response = self.authorized_client.get(r)
+        group_list = response.context['page_obj'][0]
+        self.assertEqual(post.image, group_list.image)
+
+    def test_post_detailt_index_context(self):
+        """Шаблон post_detail_context сформирован с правильной картинкой."""
+        post = TestContextImage.post
+        r = reverse('posts:post_detail', kwargs={'post_id': post.pk})
+        response = self.authorized_client.get(r)
+        obj = response.context['post']
+        self.assertEqual(post.image, obj.image)
+    
+class CommentCreateTest(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+
+        cls.user = User.objects.create_user(username='auth')
+        cls.group = Group.objects.create(
+            title='Тестовая группа',
+            slug='test-slug',
+            description='Тестовое описание',
+        )
+        cls.post = Post.objects.create(
+            author=cls.user,
+            text='Тестовая группа',
+            group=cls.group,
+        )
+        cls.comment = Comment.objects.create(
+            text='Тестовый коментарий',
+            author=cls.user,
+            post=cls.post
+        )
+
+    def setUp(self):
+        self.user = CommentCreateTest.user
+        self.authorized_client = Client()
+        self.authorized_client.force_login(self.user)
+
+    def test_comment_context(self):
+        """Шаблон post_detail_context сформирован с правильной коментарием."""
+        post = CommentCreateTest.post
+        comment = CommentCreateTest.comment
+        r = reverse('posts:post_detail', kwargs={'post_id': post.pk})
+        response = self.authorized_client.get(r)
+        obj = response.context['comments'][0]
+        self.assertEqual(comment, obj)
+
+
+class FollowTest(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+
+        cls.user = User.objects.create_user(username='auth')
+        cls.user2 = User.objects.create_user(username='auth2')
+        cls.group = Group.objects.create(
+            title='Тестовая группа',
+            slug='test-slug',
+            description='Тестовое описание',
+        )
+        cls.post = Post.objects.create(
+            author=cls.user,
+            text='Тестовая группа',
+            group=cls.group,
+        )
+        cls.comment = Comment.objects.create(
+            text='Тестовый коментарий',
+            author=cls.user,
+            post=cls.post
+        )
+
+    def setUp(self):
+        self.user = FollowTest.user
+        self.authorized_client = Client()
+        self.authorized_client.force_login(self.user)
+
+    def test_follow(self):
+        """test_follow проверяет работу потписки и отписки."""
+        user2 = FollowTest.user2
+        follow_count = user2.following.all().count()
+        r = reverse('posts:profile_follow',
+                        kwargs={'username': f'{user2}'})
+        response = self.authorized_client.get(r)
+        r2=reverse ('posts:profile', kwargs={'username': f'{user2}'})
+        self.assertRedirects(response, r2)
+        self.assertEqual(user2.following.all().count(), follow_count + 1)
+        # проверка отписки
+        follow_count = user2.following.all().count()
+        rvrs = reverse('posts:profile', kwargs={'username': f'{user2}'})
+        rvrs2 = reverse('posts:profile_unfollow',
+                        kwargs={'username': f'{user2}'})
+        response = self.authorized_client.get(rvrs2)
+        self.assertRedirects(response, rvrs)
+        self.assertEqual(user2.following.all().count(), follow_count-1)
+    
+    

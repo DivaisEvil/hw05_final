@@ -83,7 +83,6 @@ class TaskPagesTests(TestCase):
         post = TaskPagesTests.post
         self.assertEqual(post.text, obj.text)
         self.assertEqual(post.group, obj.group)
-        self.assertEqual(post.pk, obj.pk)
         return True
 
     def test_index_page_show_correct_context(self):
